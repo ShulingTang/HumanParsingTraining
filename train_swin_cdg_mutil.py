@@ -169,7 +169,8 @@ def main():
 
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, sampler=dist_sampler,
                                    num_workers=8, pin_memory=False, drop_last=True)
-    print('Total training samples: {}'.format(len(train_dataset)))
+    if local_rank == 0:
+        print('Total training samples: {}'.format(len(train_dataset)))
 
     # Optimizer Initialization
     if args.optimizer == 'sgd':
@@ -260,11 +261,13 @@ def main():
 
         torch.cuda.empty_cache()
         end = timeit.default_timer()
-        print('epoch = {} of {} completed using {} s'.format(epoch, args.epochs,
-                                                             (end - start) / (epoch - start_epoch + 1)))
+        if local_rank == 0:
+            print('epoch = {} of {} completed using {} s'.format(epoch, args.epochs,
+                                                                 (end - start) / (epoch - start_epoch + 1)))
 
     end = timeit.default_timer()
-    print('Training Finished in {} seconds'.format(end - start))
+    if local_rank == 0:
+        print('Training Finished in {} seconds'.format(end - start))
 
 
 if __name__ == '__main__':

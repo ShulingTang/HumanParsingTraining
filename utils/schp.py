@@ -63,7 +63,7 @@ def bn_re_estimate(loader, model):
     model.apply(lambda module: _get_momenta(module, momenta))
     n = 0
     for i_iter, batch in tqdm(enumerate(loader)):
-        images, labels, _ = batch
+        images, labels = batch[0], batch[1]
         b = images.data.size(0)
         momentum = b / (n + b)
         for module in momenta.keys():
