@@ -1274,9 +1274,9 @@ class SwinTransformer(BaseModule):
             self.edge = Edge_Module(in_fea=[128, 256, 512], mid_fea=256, out_fea=2)  # base
 
         if context_in_channel == 768:
-            self.decoder = Decoder_Module(20, ch1=96, ch2=48, ch3=304)  # tiny & small
+            self.decoder = Decoder_Module(num_classes, ch1=96, ch2=48, ch3=304)  # tiny & small
         else:
-            self.decoder = Decoder_Module(20, ch1=128, ch2=64, ch3=320)  # base
+            self.decoder = Decoder_Module(num_classes, ch1=128, ch2=64, ch3=320)  # base
 
         self.fushion = nn.Sequential(
             #     nn.Conv2d(832, 256, kernel_size=1, padding=0, dilation=1, bias=False), #tiny & small
@@ -1285,7 +1285,7 @@ class SwinTransformer(BaseModule):
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             nn.Dropout2d(0.1),
-            nn.Conv2d(256, 20, kernel_size=1, padding=0, dilation=1, bias=True)
+            nn.Conv2d(256, num_classes, kernel_size=1, padding=0, dilation=1, bias=True)
         )
         self.hwAttention = CDGAttention(512, 256, num_classes, [473 // 4, 473 // 4], 7)
 
@@ -1353,13 +1353,22 @@ class SwinTransformer(BaseModule):
                 _state_dict = swin_converter(_state_dict)
 
             state_dict = OrderedDict()
-            for k, v in _state_dict.items():
-                if k.startswith('backbone.'):
-                    state_dict[k[9:]] = v
+            if list(_state_dict.keys())[0].startswith('backbone.'):
+                for k, v in _state_dict.items():
+                    if k.startswith('backbone.'):
+                        state_dict[k[9:]] = v
+            else:
+                state_dict = _state_dict.copy()
 
             # strip prefix of state_dict
             if list(state_dict.keys())[0].startswith('module.'):
                 state_dict = {k[7:]: v for k, v in state_dict.items()}
+
+            for k in list(state_dict.keys()):
+                if k.startswith('fushion.4'):
+                    state_dict.pop(k)
+                if k.startswith('decoder.conv4'):
+                    state_dict.pop(k)
 
             # reshape absolute position embedding
             if state_dict.get('absolute_pos_embed') is not None:

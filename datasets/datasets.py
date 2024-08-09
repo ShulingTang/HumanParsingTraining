@@ -23,7 +23,7 @@ from datasets.target_generation import generate_hw_gt
 
 class LIPDataSet(data.Dataset):
     def __init__(self, root, dataset, crop_size=[473, 473], scale_factor=0.25,
-                 rotation_factor=30, ignore_label=255, transform=None, arch="swin_cdg"):
+                 rotation_factor=30, ignore_label=255, transform=None, arch="swin_cdg", num_classes=20):
         self.root = root
         self.aspect_ratio = crop_size[1] * 1.0 / crop_size[0]
         self.crop_size = np.asarray(crop_size)
@@ -33,6 +33,7 @@ class LIPDataSet(data.Dataset):
         self.flip_prob = 0.5
         self.transform = transform
         self.dataset = dataset
+        self.num_classes = num_classes
 
         list_path = os.path.join(self.root, self.dataset + '_id.txt')
         train_list = [i_id.strip() for i_id in open(list_path)]
@@ -129,7 +130,7 @@ class LIPDataSet(data.Dataset):
                 borderValue=(255))
 
             if self.arch == "swin_cdg":
-                hgt, wgt, hwgt = generate_hw_gt(label_parsing)
+                hgt, wgt, hwgt = generate_hw_gt(label_parsing, class_num=self.num_classes)
                 label_parsing = torch.from_numpy(label_parsing)
                 return input, label_parsing, hgt, wgt, hwgt, meta
             else:

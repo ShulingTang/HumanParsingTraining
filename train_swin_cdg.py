@@ -38,7 +38,7 @@ def get_arguments():
     parser.add_argument("--data-dir", type=str, default='/home/tsl/data/HumanParsing/mada-data/single_human_data')
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--input-size", type=str, default='512,512')
-    parser.add_argument("--num-classes", type=int, default=20)
+    parser.add_argument("--num-classes", type=int, default=28)
     parser.add_argument("--ignore-label", type=int, default=255)
     parser.add_argument("--random-mirror", action="store_true")
     parser.add_argument("--random-scale", action="store_true")
@@ -50,7 +50,8 @@ def get_arguments():
     parser.add_argument("--start-epoch", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--eval-epochs", type=int, default=2)
-    parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
+    # parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
+    parser.add_argument("--imagenet-pretrain", type=str, default='/home/tsl/project/parsing_infer/checkpoint/swin_base_150.pth.tar')
     parser.add_argument("--log-dir", type=str, default='./log/test_swincdg')
     parser.add_argument("--model-restore", type=str, default='./log/checkpoint.pth.tar')
     parser.add_argument("--schp-start", type=int, default=10, help='schp start epoch')
@@ -89,7 +90,7 @@ def main():
     if not args.gpu == 'None':
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-    device = torch.device("cuda")
+    device = torch.device("cuda:0")
 
     torch.cuda.set_device(device)
     input_size = list(map(int, args.input_size.split(',')))
@@ -171,7 +172,8 @@ def main():
                                  std=IMAGE_STD),
         ])
 
-    train_dataset = LIPDataSet(args.data_dir, 'train', crop_size=input_size, transform=transform, arch=args.arch)
+    train_dataset = LIPDataSet(args.data_dir, 'train', crop_size=input_size, transform=transform,
+                               arch=args.arch, num_classes=args.num_classes)
 
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size * len(gpus), shuffle=True,
                                    num_workers=8, pin_memory=True, drop_last=True)
