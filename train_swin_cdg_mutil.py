@@ -52,10 +52,10 @@ def get_arguments():
     parser.add_argument("--eval-epochs", type=int, default=2)
     parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
     parser.add_argument("--log-dir", type=str, default='./log/test_swincdg')
-    parser.add_argument("--model-restore", type=str, default='./log/checkpoint.pth.tar')
+    parser.add_argument("--model-restore", type=str, default='./logs/mutil_gpu_swin_cdg/checkpoint_120.pth.tar')
     parser.add_argument("--schp-start", type=int, default=10, help='schp start epoch')
     parser.add_argument("--cycle-epochs", type=int, default=5, help='schp cyclical epoch')
-    parser.add_argument("--schp-restore", type=str, default='./log/schp_checkpoint.pth.tar')
+    parser.add_argument("--schp-restore", type=str, default='./logs/mutil_gpu_swin_cdg/schp_1_checkpoint.pth.tar')
     parser.add_argument("--lambda-s", type=float, default=1, help='segmentation loss weight')
     parser.add_argument("--lambda-e", type=float, default=1, help='edge loss weight')
     parser.add_argument("--lambda-c", type=float, default=0.1, help='segmentation-edge consistency loss weight')
@@ -118,7 +118,12 @@ def main():
     if os.path.exists(restore_from):
         print('Resume training from {}'.format(restore_from))
         checkpoint = torch.load(restore_from, map_location='cpu')
-        model.load_state_dict(checkpoint['state_dict'])
+        _state_dict = checkpoint['state_dict']
+        if list(_state_dict.keys())[0].startswith('module.'):
+            state_dict = {k[7:]: v for k, v in _state_dict.items()}
+            model.load_state_dict(state_dict)
+        else:
+            model.load_state_dict(_state_dict)
         start_epoch = checkpoint['epoch']
     model.to(device)
     if args.syncbn:
@@ -133,6 +138,11 @@ def main():
         schp_checkpoint = torch.load(args.schp_restore, map_location='cpu')
         schp_model_state_dict = schp_checkpoint['state_dict']
         cycle_n = schp_checkpoint['cycle_n']
+        if list(schp_model_state_dict.keys())[0].startswith('module.'):
+            state_dict = {k[7:]: v for k, v in schp_model_state_dict.items()}
+            model.load_state_dict(state_dict)
+        else:
+            model.load_state_dict(schp_model_state_dict)
         schp_model.load_state_dict(schp_model_state_dict)
 
     schp_model.to(device)
