@@ -9,7 +9,7 @@ python -m torch.distributed.launch --nproc_per_node 8 train_swin_cdg_mutil.py --
 --optimizer sgd \
 --syncbn \
 --lr_divider 500 \
---cyclelr_divider 2 \
+--cyclelr-divider 2 \
 --warmup_epochs 30 \
 --epochs 200 \
 --schp-start 160 \

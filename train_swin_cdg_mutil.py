@@ -120,7 +120,7 @@ def main():
         rank_print(local_rank, 'Resume training from {}'.format(restore_from))
         checkpoint = torch.load(restore_from, map_location='cpu')
         _state_dict = checkpoint['state_dict']
-        if list(_state_dict.keys())[0].startswith('module.'):
+        if args.imagenet_pretrain == './pretrained/solider_swin_base.pth' and list(_state_dict.keys())[0].startswith('module.'):
             state_dict = {k[7:]: v for k, v in _state_dict.items()}
             model.load_state_dict(state_dict)
         else:
