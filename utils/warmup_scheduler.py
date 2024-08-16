@@ -52,7 +52,7 @@ class SGDRScheduler(_LRScheduler):
         elif self.last_epoch < self.start_cyclical:
             return [self.eta_min + (base_lr-self.eta_min)*(1+math.cos(math.pi*(self.last_epoch-self.warmup_epoch)/(self.start_cyclical-self.warmup_epoch))) / 2 for base_lr in self.base_lrs]
         else:
-            return [self.eta_min + (self.cyclical_base_lr-self.eta_min)*(1+math.cos(math.pi* ((self.last_epoch-self.start_cyclical)% self.cyclical_epoch)/self.cyclical_epoch)) / 2 for base_lr in self.base_lrs]
+            return [self.eta_min + (self.cyclical_base_lr-self.eta_min)*(1+math.cos(math.pi * ((self.last_epoch-self.start_cyclical) % self.cyclical_epoch)/self.cyclical_epoch)) / 2 for base_lr in self.base_lrs]
 
 
 if __name__ == '__main__':

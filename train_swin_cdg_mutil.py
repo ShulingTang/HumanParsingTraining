@@ -23,6 +23,7 @@ from utils.transforms import BGR2RGB_transform
 from utils.criterion_new import CriterionAll
 from utils.encoding import DataParallelModel, DataParallelCriterion
 from utils.warmup_scheduler import SGDRScheduler
+from utils.utils import rank_print
 
 
 def get_arguments():
@@ -37,7 +38,7 @@ def get_arguments():
     # Data Preference
     parser.add_argument("--data-dir", type=str, default='/home/tsl/data/HumanParsing/mada-data/single_human_data')
     parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--input-size", type=str, default='512,512')
+    parser.add_argument("--input-size", type=str, default='1080,768')
     parser.add_argument("--num-classes", type=int, default=20)
     parser.add_argument("--ignore-label", type=int, default=255)
     parser.add_argument("--random-mirror", action="store_true")
@@ -48,13 +49,13 @@ def get_arguments():
     parser.add_argument("--weight-decay", type=float, default=0)
     parser.add_argument("--gpu", type=str, default='0')
     parser.add_argument("--start-epoch", type=int, default=0)
-    parser.add_argument("--epochs", type=int, default=15)
-    parser.add_argument("--eval-epochs", type=int, default=2)
+    parser.add_argument("--epochs", type=int, default=150)
+    parser.add_argument("--eval-epochs", type=int, default=5)
     parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
     parser.add_argument("--log-dir", type=str, default='./log/test_swincdg')
     parser.add_argument("--model-restore", type=str, default='./logs/mutil_gpu_swin_cdg/checkpoint_120.pth.tar')
-    parser.add_argument("--schp-start", type=int, default=10, help='schp start epoch')
-    parser.add_argument("--cycle-epochs", type=int, default=5, help='schp cyclical epoch')
+    parser.add_argument("--schp-start", type=int, default=160, help='schp start epoch')
+    parser.add_argument("--cycle-epochs", type=int, default=10, help='schp cyclical epoch')
     parser.add_argument("--schp-restore", type=str, default='./logs/mutil_gpu_swin_cdg/schp_1_checkpoint.pth.tar')
     parser.add_argument("--lambda-s", type=float, default=1, help='segmentation loss weight')
     parser.add_argument("--lambda-e", type=float, default=1, help='edge loss weight')
@@ -64,7 +65,7 @@ def get_arguments():
     parser.add_argument("--optimizer", type=str, default='sgd', help='which optimizer to use')
 
     parser.add_argument("--local-rank", type=int, default=-1)
-    parser.add_argument("--warmup_epochs", type=int, default=10)
+    parser.add_argument("--warmup_epochs", type=int, default=30)
     parser.add_argument("--lr_divider", type=int, default=500)
     parser.add_argument("--cyclelr-divider", type=int, default=2)
 
@@ -80,13 +81,13 @@ def main():
 
     if not os.path.exists(args.log_dir) and local_rank == 0:
         os.makedirs(args.log_dir)
-        print('Create log directory: {}'.format(args.log_dir))
+        rank_print(local_rank, 'Create log directory: {}'.format(args.log_dir))
 
     if local_rank == 0:
         with open(os.path.join(args.log_dir, 'args.json'), 'w') as opt_file:
             json.dump(vars(args), opt_file)
 
-        print(args)
+        rank_print(local_rank, args)
 
     dist.init_process_group(backend='nccl')
 
@@ -107,7 +108,7 @@ def main():
                                 convert_weights=convert_weights)
     for name, param in model.named_parameters():
         if "patch_embed" in name:
-            print(name)
+            rank_print(local_rank, name)
             param.requires_grad = False
 
     IMAGE_MEAN = model.mean
@@ -116,7 +117,7 @@ def main():
 
     restore_from = args.model_restore
     if os.path.exists(restore_from):
-        print('Resume training from {}'.format(restore_from))
+        rank_print(local_rank, 'Resume training from {}'.format(restore_from))
         checkpoint = torch.load(restore_from, map_location='cpu')
         _state_dict = checkpoint['state_dict']
         if list(_state_dict.keys())[0].startswith('module.'):
@@ -134,7 +135,7 @@ def main():
                                      convert_weights=convert_weights)
 
     if os.path.exists(args.schp_restore):
-        print('Resuming schp checkpoint from {}'.format(args.schp_restore))
+        rank_print(local_rank, 'Resuming schp checkpoint from {}'.format(args.schp_restore))
         schp_checkpoint = torch.load(args.schp_restore, map_location='cpu')
         schp_model_state_dict = schp_checkpoint['state_dict']
         cycle_n = schp_checkpoint['cycle_n']
@@ -147,7 +148,7 @@ def main():
 
     schp_model.to(device)
     if args.syncbn:
-        print('----use syncBN in model!----')
+        rank_print(local_rank, '----use syncBN in model!----')
         schp_model = nn.SyncBatchNorm.convert_sync_batchnorm(schp_model)
     schp_model = DDP(schp_model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
 
@@ -157,7 +158,7 @@ def main():
 
     # Data Loader
     if INPUT_SPACE == 'BGR':
-        print('BGR Transformation')
+        rank_print(local_rank, 'BGR Transformation')
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=IMAGE_MEAN,
@@ -166,7 +167,7 @@ def main():
 
     # elif INPUT_SPACE == 'RGB':
     else:
-        print('RGB Transformation')
+        rank_print(local_rank, 'RGB Transformation')
         transform = transforms.Compose([
             transforms.ToTensor(),
             BGR2RGB_transform(),
@@ -179,18 +180,18 @@ def main():
 
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, sampler=dist_sampler,
                                    num_workers=8, pin_memory=False, drop_last=True)
-    if local_rank == 0:
-        print('Total training samples: {}'.format(len(train_dataset)))
+
+    rank_print(local_rank, 'Total training samples: {}'.format(len(train_dataset)))
 
     # Optimizer Initialization
     if args.optimizer == 'sgd':
-        print("using SGD optimizer")
+        rank_print(local_rank, "using SGD optimizer")
         optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate,
                               momentum=args.momentum,
                               weight_decay=args.weight_decay)
     # elif args.optimizer == 'adam':
     else:
-        print("using Adam optimizer")
+        rank_print(local_rank, "using Adam optimizer")
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate,
                                weight_decay=args.weight_decay)
 
@@ -241,8 +242,8 @@ def main():
             loss.backward()
             optimizer.step()
 
-            if local_rank == 0 and i_iter % 100 == 0:
-                print('iter = {} of {} completed, lr = {}, loss = {}, time = {}'
+            if i_iter % 100 == 0:
+                rank_print(local_rank, 'iter = {} of {} completed, lr = {}, loss = {}, time = {}'
                       .format(i_iter,
                               total_iters,
                               lr,
@@ -259,7 +260,7 @@ def main():
 
         # Self Correction Cycle with Model Aggregation
         if (epoch + 1) >= args.schp_start and (epoch + 1 - args.schp_start) % args.cycle_epochs == 0:
-            print('Self-correction cycle number {}'.format(cycle_n))
+            rank_print(local_rank, 'Self-correction cycle number {}'.format(cycle_n))
             schp.moving_average(schp_model, model, 1.0 / (cycle_n + 1))
             cycle_n += 1
             schp.bn_re_estimate(train_loader, schp_model)
@@ -271,13 +272,11 @@ def main():
 
         torch.cuda.empty_cache()
         end = timeit.default_timer()
-        if local_rank == 0:
-            print('epoch = {} of {} completed using {} s'.format(epoch, args.epochs,
+        rank_print(local_rank, 'epoch = {} of {} completed using {} s'.format(epoch, args.epochs,
                                                                  (end - start) / (epoch - start_epoch + 1)))
 
     end = timeit.default_timer()
-    if local_rank == 0:
-        print('Training Finished in {} seconds'.format(end - start))
+    rank_print(local_rank, 'Training Finished in {} seconds'.format(end - start))
 
 
 if __name__ == '__main__':

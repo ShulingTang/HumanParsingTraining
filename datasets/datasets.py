@@ -37,8 +37,8 @@ class LIPDataSet(data.Dataset):
 
         list_path = os.path.join(self.root, self.dataset + '_id.txt')
         train_list = [i_id.strip() for i_id in open(list_path)]
-        import random
-        train_list = random.sample(train_list, 400)
+        # import random
+        # train_list = random.sample(train_list, 400)
 
         self.train_list = train_list
         self.number_samples = len(self.train_list)

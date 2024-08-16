@@ -121,7 +121,7 @@ class CriterionAll(nn.Module):
         # wgt=wgt[:,1:,:]
         # scale_wpred = scale_wpred[:,1:,:]
         wloss = torch.mean((wgt - scale_wpred) * (wgt - scale_wpred))
-        hwLoss = (hloss + wloss) * 45
+        hwLoss = (hloss + wloss) * 20
         loss += hwLoss
 
         return loss

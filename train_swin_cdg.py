@@ -119,7 +119,12 @@ def main():
     if os.path.exists(restore_from):
         print('Resume training from {}'.format(restore_from))
         checkpoint = torch.load(restore_from, map_location='cpu')
-        model.load_state_dict(checkpoint['state_dict'])
+        _state_dict = checkpoint['state_dict']
+        if list(_state_dict.keys())[0].startswith('module.'):
+            state_dict = {k[7:]: v for k, v in _state_dict.items()}
+            model.load_state_dict(state_dict)
+        else:
+            model.load_state_dict(_state_dict)
         start_epoch = checkpoint['epoch']
     model.to(device)
     if args.syncbn:

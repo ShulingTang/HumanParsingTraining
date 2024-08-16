@@ -1287,7 +1287,8 @@ class SwinTransformer(BaseModule):
             nn.Dropout2d(0.1),
             nn.Conv2d(256, num_classes, kernel_size=1, padding=0, dilation=1, bias=True)
         )
-        self.hwAttention = CDGAttention(512, 256, num_classes, [473 // 4, 473 // 4], 7)
+        if hw_attention:
+            self.hwAttention = CDGAttention(512, 256, num_classes, [473 // 4, 473 // 4], 7)
 
         # self.init_weights(pretrained)
 
