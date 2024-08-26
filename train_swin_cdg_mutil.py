@@ -56,7 +56,7 @@ def get_arguments():
     parser.add_argument("--model-restore", type=str, default='./logs/mutil_gpu_swin_cdg/checkpoint_120.pth.tar')
     parser.add_argument("--schp-start", type=int, default=160, help='schp start epoch')
     parser.add_argument("--cycle-epochs", type=int, default=10, help='schp cyclical epoch')
-    parser.add_argument("--schp-restore", type=str, default='./logs/mutil_gpu_swin_cdg/schp_1_checkpoint.pth.tar')
+    parser.add_argument("--schp-restore", type=str, default='./logs/schp_checkpoint.pth.tar')
     parser.add_argument("--lambda-s", type=float, default=1, help='segmentation loss weight')
     parser.add_argument("--lambda-e", type=float, default=1, help='edge loss weight')
     parser.add_argument("--lambda-c", type=float, default=0.1, help='segmentation-edge consistency loss weight')
