@@ -53,7 +53,7 @@ def get_arguments():
     parser.add_argument("--eval-epochs", type=int, default=5)
     parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
     parser.add_argument("--log-dir", type=str, default='./log/test_swincdg')
-    parser.add_argument("--model-restore", type=str, default='./logs/mutil_gpu_swin_cdg/checkpoint_120.pth.tar')
+    parser.add_argument("--model-restore", type=str, default='./logs/mutil_gpu_swin_cdg/./.pth.tar')
     parser.add_argument("--schp-start", type=int, default=160, help='schp start epoch')
     parser.add_argument("--cycle-epochs", type=int, default=10, help='schp cyclical epoch')
     parser.add_argument("--schp-restore", type=str, default='./logs/schp_checkpoint.pth.tar')
@@ -175,7 +175,8 @@ def main():
                                  std=IMAGE_STD),
         ])
 
-    train_dataset = LIPDataSet(args.data_dir, 'train', crop_size=input_size, transform=transform, arch=args.arch)
+    train_dataset = LIPDataSet(args.data_dir, 'train', crop_size=input_size, transform=transform,
+                               arch=args.arch, num_classes=args.num_classes)
     dist_sampler = data.distributed.DistributedSampler(train_dataset, shuffle=True)
 
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, sampler=dist_sampler,

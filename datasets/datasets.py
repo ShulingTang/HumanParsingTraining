@@ -19,11 +19,14 @@ import cv2
 from torch.utils import data
 from utils.transforms import get_affine_transform
 from datasets.target_generation import generate_hw_gt
+from utils.utils import get_toggle_index
+
 
 
 class LIPDataSet(data.Dataset):
     def __init__(self, root, dataset, crop_size=[473, 473], scale_factor=0.25,
-                 rotation_factor=30, ignore_label=255, transform=None, arch="swin_cdg", num_classes=20):
+                 rotation_factor=30, ignore_label=255, transform=None,
+                 arch="swin_cdg", num_classes=20, index_toggle=None):
         self.root = root
         self.aspect_ratio = crop_size[1] * 1.0 / crop_size[0]
         self.crop_size = np.asarray(crop_size)
@@ -34,6 +37,15 @@ class LIPDataSet(data.Dataset):
         self.transform = transform
         self.dataset = dataset
         self.num_classes = num_classes
+        # index_toggle  # [[15, 17, 19], [14, 16, 18]]
+        if index_toggle is not None:
+            self.index_toggle = index_toggle
+        else:
+            self.index_toggle = get_toggle_index(num_classes)
+
+        assert isinstance(index_toggle, list)
+        assert len(index_toggle) == 2
+        self.right_idx, self.left_idx = index_toggle[0], index_toggle[1]
 
         list_path = os.path.join(self.root, self.dataset + '_id.txt')
         train_list = [i_id.strip() for i_id in open(list_path)]
@@ -89,14 +101,11 @@ class LIPDataSet(data.Dataset):
                     im = im[:, ::-1, :]
                     parsing_anno = parsing_anno[:, ::-1]
                     person_center[0] = im.shape[1] - person_center[0] - 1
-                    if self.num_classes == 20:
-                        right_idx = [15, 17, 19]
-                        left_idx = [14, 16, 18]
-                        for i in range(0, 3):
-                            right_pos = np.where(parsing_anno == right_idx[i])
-                            left_pos = np.where(parsing_anno == left_idx[i])
-                            parsing_anno[right_pos[0], right_pos[1]] = left_idx[i]
-                            parsing_anno[left_pos[0], left_pos[1]] = right_idx[i]
+                    for i in range(len(self.right_idx)):
+                        right_pos = np.where(parsing_anno == self.right_idx[i])
+                        left_pos = np.where(parsing_anno == self.left_idx[i])
+                        parsing_anno[right_pos[0], right_pos[1]] = self.left_idx[i]
+                        parsing_anno[left_pos[0], left_pos[1]] = self.right_idx[i]
 
         trans = get_affine_transform(person_center, s, r, self.crop_size)
         input = cv2.warpAffine(
