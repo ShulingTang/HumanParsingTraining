@@ -35,10 +35,10 @@ def get_arguments():
     # Network Structure
     parser.add_argument("--arch", type=str, default='swin_cdg')
     # Data Preference
-    parser.add_argument("--data-dir", type=str, default='/home/tsl/data/HumanParsing/mada-data/single_human_data')
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--input-size", type=str, default='512,512')
-    parser.add_argument("--num-classes", type=int, default=28)
+    parser.add_argument("--data-dir", type=str, default='/media/tsl/T9/full_19/train_data')
+    parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--input-size", type=str, default='1024,768')
+    parser.add_argument("--num-classes", type=int, default=19)
     parser.add_argument("--ignore-label", type=int, default=255)
     parser.add_argument("--random-mirror", action="store_true")
     parser.add_argument("--random-scale", action="store_true")

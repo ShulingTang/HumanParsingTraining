@@ -89,13 +89,14 @@ class LIPDataSet(data.Dataset):
                     im = im[:, ::-1, :]
                     parsing_anno = parsing_anno[:, ::-1]
                     person_center[0] = im.shape[1] - person_center[0] - 1
-                    right_idx = [15, 17, 19]
-                    left_idx = [14, 16, 18]
-                    for i in range(0, 3):
-                        right_pos = np.where(parsing_anno == right_idx[i])
-                        left_pos = np.where(parsing_anno == left_idx[i])
-                        parsing_anno[right_pos[0], right_pos[1]] = left_idx[i]
-                        parsing_anno[left_pos[0], left_pos[1]] = right_idx[i]
+                    if self.num_classes == 20:
+                        right_idx = [15, 17, 19]
+                        left_idx = [14, 16, 18]
+                        for i in range(0, 3):
+                            right_pos = np.where(parsing_anno == right_idx[i])
+                            left_pos = np.where(parsing_anno == left_idx[i])
+                            parsing_anno[right_pos[0], right_pos[1]] = left_idx[i]
+                            parsing_anno[left_pos[0], left_pos[1]] = right_idx[i]
 
         trans = get_affine_transform(person_center, s, r, self.crop_size)
         input = cv2.warpAffine(

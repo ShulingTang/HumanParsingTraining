@@ -20,7 +20,7 @@ import utils.schp as schp
 from datasets.datasets import LIPDataSet
 from datasets.target_generation import generate_edge_tensor
 from utils.transforms import BGR2RGB_transform
-from utils.criterion import CriterionAll
+from utils.criterion_new import CriterionAll
 from utils.encoding import DataParallelModel, DataParallelCriterion
 from utils.warmup_scheduler import SGDRScheduler
 
@@ -33,12 +33,12 @@ def get_arguments():
     parser = argparse.ArgumentParser(description="Self Correction for Human Parsing")
 
     # Network Structure
-    parser.add_argument("--arch", type=str, default='swin_base')
+    parser.add_argument("--arch", type=str, default='swin_cdg')
     # Data Preference
     parser.add_argument("--data-dir", type=str, default='/home/tsl/data/HumanParsing/mada-data/single_human_data')
-    parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--input-size", type=str, default='512,512')
-    parser.add_argument("--num-classes", type=int, default=20)
+    parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--input-size", type=str, default='768,1026')
+    parser.add_argument("--num-classes", type=int, default=19)
     parser.add_argument("--ignore-label", type=int, default=255)
     parser.add_argument("--random-mirror", action="store_true")
     parser.add_argument("--random-scale", action="store_true")
@@ -63,9 +63,9 @@ def get_arguments():
     parser.add_argument("--imagenet", action="store_true", help='use syncbn or not')
     parser.add_argument("--optimizer", type=str, default='sgd', help='which optimizer to use')
 
-    parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument("--local-rank", type=int, default=-1)
     parser.add_argument("--warmup_epochs", type=int, default=10)
-    parser.add_argument("--lr_divider", type=int, default=500)
+    parser.add_argument("--lr-divider", type=int, default=500)
     parser.add_argument("--cyclelr-divider", type=int, default=2)
 
     return parser.parse_args()
