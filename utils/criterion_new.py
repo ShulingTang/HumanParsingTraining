@@ -23,12 +23,15 @@ NUM_CLASSES = 20
 
 
 class CriterionAll(nn.Module):
-    def __init__(self, use_class_weight=False, ignore_index=255, lambda_1=1, lambda_2=1, lambda_3=1,
+    def __init__(self, use_class_weight=None, ignore_index=255, lambda_1=1, lambda_2=1, lambda_3=1,
                  num_classes=20):
         super(CriterionAll, self).__init__()
         self.ignore_index = ignore_index
         self.use_class_weight = use_class_weight
-        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index)
+        if self.use_class_weight is not None:
+            self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, weight=self.use_class_weight)
+        else:
+            self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index)
         self.lovasz = LovaszSoftmax(ignore_index=ignore_index)
         self.kldiv = KLDivergenceLoss(ignore_index=ignore_index)
         self.reg = ConsistencyLoss(ignore_index=ignore_index)

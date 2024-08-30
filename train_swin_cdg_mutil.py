@@ -21,9 +21,9 @@ from datasets.datasets import LIPDataSet
 from datasets.target_generation import generate_edge_tensor
 from utils.transforms import BGR2RGB_transform
 from utils.criterion_new import CriterionAll
-from utils.encoding import DataParallelModel, DataParallelCriterion
 from utils.warmup_scheduler import SGDRScheduler
 from utils.utils import rank_print
+from utils.constant import CLASS_WEIGHT_19
 
 
 def get_arguments():
@@ -152,9 +152,13 @@ def main():
         schp_model = nn.SyncBatchNorm.convert_sync_batchnorm(schp_model)
     schp_model = DDP(schp_model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
 
+    if args.num_classes == 19:
+        use_class_weight = torch.tensor(CLASS_WEIGHT_19, dtype=torch.float32, device=device)
+    else:
+        use_class_weight = None
     # Loss Function
     criterion = CriterionAll(lambda_1=args.lambda_s, lambda_2=args.lambda_e, lambda_3=args.lambda_c,
-                             num_classes=args.num_classes)
+                             num_classes=args.num_classes, use_class_weight=use_class_weight)
 
     # Data Loader
     if INPUT_SPACE == 'BGR':

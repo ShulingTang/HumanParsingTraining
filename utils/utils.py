@@ -12,3 +12,4 @@ def get_toggle_index(num_classes):
     else:
         toggle_index = [[], []]
     return toggle_index
+
