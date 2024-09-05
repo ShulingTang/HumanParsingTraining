@@ -23,6 +23,7 @@ from utils.transforms import BGR2RGB_transform
 from utils.criterion_new import CriterionAll
 from utils.encoding import DataParallelModel, DataParallelCriterion
 from utils.warmup_scheduler import SGDRScheduler
+from utils.constant import CLASS_WEIGHT_19, CLASS_WEIGHT_24
 
 
 def get_arguments():
@@ -38,7 +39,7 @@ def get_arguments():
     parser.add_argument("--data-dir", type=str, default='/media/tsl/T9/full_19/train_data')
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--input-size", type=str, default='1024,768')
-    parser.add_argument("--num-classes", type=int, default=19)
+    parser.add_argument("--num-classes", type=int, default=24)
     parser.add_argument("--ignore-label", type=int, default=255)
     parser.add_argument("--random-mirror", action="store_true")
     parser.add_argument("--random-scale", action="store_true")
@@ -51,7 +52,7 @@ def get_arguments():
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--eval-epochs", type=int, default=2)
     # parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
-    parser.add_argument("--imagenet-pretrain", type=str, default='/home/tsl/project/parsing_infer/checkpoint/swin_base_150.pth.tar')
+    parser.add_argument("--imagenet-pretrain", type=str, default='/home/tsl/nas/tsl/humanParsing/model_checkpoint/swin_cdg/swin_cdg_1024768_70_epoch.pth.tar')
     parser.add_argument("--log-dir", type=str, default='./log/test_swincdg')
     parser.add_argument("--model-restore", type=str, default='./log/checkpoint.pth.tar')
     parser.add_argument("--schp-start", type=int, default=10, help='schp start epoch')
@@ -153,9 +154,16 @@ def main():
     # schp_model = DDP(schp_model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
     schp_model = DataParallelModel(schp_model)
 
+    if args.num_classes == 19:
+        use_class_weight = torch.tensor(CLASS_WEIGHT_19, dtype=torch.float32, device=device)
+    elif args.num_classes == 24:
+        use_class_weight = torch.tensor(CLASS_WEIGHT_24, dtype=torch.float32, device=device)
+    else:
+        use_class_weight = None
+
     # Loss Function
     criterion = CriterionAll(lambda_1=args.lambda_s, lambda_2=args.lambda_e, lambda_3=args.lambda_c,
-                             num_classes=args.num_classes)
+                             num_classes=args.num_classes, use_class_weight=use_class_weight)
     criterion = DataParallelCriterion(criterion)
     criterion.to(device)
 

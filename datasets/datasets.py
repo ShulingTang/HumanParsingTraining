@@ -22,7 +22,6 @@ from datasets.target_generation import generate_hw_gt
 from utils.utils import get_toggle_index
 
 
-
 class LIPDataSet(data.Dataset):
     def __init__(self, root, dataset, crop_size=[473, 473], scale_factor=0.25,
                  rotation_factor=30, ignore_label=255, transform=None,
@@ -42,15 +41,14 @@ class LIPDataSet(data.Dataset):
             self.index_toggle = index_toggle
         else:
             self.index_toggle = get_toggle_index(num_classes)
-
-        assert isinstance(index_toggle, list)
-        assert len(index_toggle) == 2
-        self.right_idx, self.left_idx = index_toggle[0], index_toggle[1]
+        assert isinstance(self.index_toggle, list)
+        assert len(self.index_toggle) == 2
+        self.right_idx, self.left_idx = self.index_toggle[0], self.index_toggle[1]
 
         list_path = os.path.join(self.root, self.dataset + '_id.txt')
         train_list = [i_id.strip() for i_id in open(list_path)]
-        # import random
-        # train_list = random.sample(train_list, 400)
+        import random
+        train_list = random.sample(train_list, 400)
 
         self.train_list = train_list
         self.number_samples = len(self.train_list)

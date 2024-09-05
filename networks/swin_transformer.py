@@ -1066,6 +1066,42 @@ class SwinBlockSequence(BaseModule):
             return x, hw_shape, x, hw_shape
 
 
+def load_and_adjust_weights(state_dict, model_state_dict):
+    """
+    调整从预训练模型加载的 state_dict，使其能够部分加载到当前模型的 state_dict 中。
+
+    Args:
+        state_dict: 从预训练模型加载的状态字典。
+        model_state_dict: 当前模型的状态字典。
+
+    Returns:
+        调整后的 state_dict。
+    """
+    adjusted_state_dict = OrderedDict()
+
+    for key in state_dict:
+        if key in model_state_dict:
+            if not key.startswith("hwAttention"):
+                # 如果不是 hwAttention 的权重，直接加载
+                adjusted_state_dict[key] = state_dict[key]
+            else:
+                pretrained_shape = state_dict[key].shape
+                model_shape = model_state_dict[key].shape
+
+                if pretrained_shape == model_shape:
+                    # 如果形状匹配，直接加载
+                    adjusted_state_dict[key] = state_dict[key]
+                else:
+                    min_shape = min(pretrained_shape[0], model_shape[0])
+                    new_weight = model_state_dict[key].clone()
+                    new_weight[:min_shape] = state_dict[key][:min_shape]
+                    adjusted_state_dict[key] = new_weight
+        else:
+            logging.warning(f"Key {key} not found in model state dict, skipping.")
+
+    return adjusted_state_dict
+
+
 class SwinTransformer(BaseModule):
     """ Swin Transformer
     A PyTorch implement of : `Swin Transformer:
@@ -1353,22 +1389,22 @@ class SwinTransformer(BaseModule):
                 # supported loading weight from original repo,
                 _state_dict = swin_converter(_state_dict)
 
+            # strip prefix of state_dict
             state_dict = OrderedDict()
             if list(_state_dict.keys())[0].startswith('backbone.'):
                 for k, v in _state_dict.items():
                     if k.startswith('backbone.'):
                         state_dict[k[9:]] = v
+
+            elif list(_state_dict.keys())[0].startswith('module.'):
+                for k, v in _state_dict.items():
+                    if k.startswith('module.'):
+                        state_dict[k[7:]] = v
             else:
                 state_dict = _state_dict.copy()
 
-            # strip prefix of state_dict
-            if list(state_dict.keys())[0].startswith('module.'):
-                state_dict = {k[7:]: v for k, v in state_dict.items()}
-
             for k in list(state_dict.keys()):
-                if k.startswith('fushion.4'):
-                    state_dict.pop(k)
-                if k.startswith('decoder.conv4'):
+                if k.startswith('fushion.4') or k.startswith('decoder.conv4'):
                     state_dict.pop(k)
 
             # reshape absolute position embedding
@@ -1404,7 +1440,10 @@ class SwinTransformer(BaseModule):
                     state_dict[table_key] = table_pretrained_resized.view(
                         nH2, L2).permute(1, 0).contiguous()
 
-            res = self.load_state_dict(state_dict, False)
+            # 加载不同类别模型时，hwAttention加载部分权重
+            adjusted_state_dict = load_and_adjust_weights(state_dict, self.state_dict())
+
+            res = self.load_state_dict(adjusted_state_dict, False)
             print('unloaded parameters:', res)
 
     def forward(self, x):

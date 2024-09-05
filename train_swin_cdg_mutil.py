@@ -23,7 +23,7 @@ from utils.transforms import BGR2RGB_transform
 from utils.criterion_new import CriterionAll
 from utils.warmup_scheduler import SGDRScheduler
 from utils.utils import rank_print
-from utils.constant import CLASS_WEIGHT_19
+from utils.constant import CLASS_WEIGHT_19, CLASS_WEIGHT_24
 
 
 def get_arguments():
@@ -154,6 +154,8 @@ def main():
 
     if args.num_classes == 19:
         use_class_weight = torch.tensor(CLASS_WEIGHT_19, dtype=torch.float32, device=device)
+    elif args.num_classes == 24:
+        use_class_weight = torch.tensor(CLASS_WEIGHT_24, dtype=torch.float32, device=device)
     else:
         use_class_weight = None
     # Loss Function
