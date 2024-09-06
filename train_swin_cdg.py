@@ -13,6 +13,7 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.cuda.amp import autocast, GradScaler
 from torch.utils import data
 
 import networks
@@ -51,8 +52,8 @@ def get_arguments():
     parser.add_argument("--start-epoch", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--eval-epochs", type=int, default=2)
-    # parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
-    parser.add_argument("--imagenet-pretrain", type=str, default='/home/tsl/nas/tsl/humanParsing/model_checkpoint/swin_cdg/swin_cdg_1024768_70_epoch.pth.tar')
+    parser.add_argument("--imagenet-pretrain", type=str, default='./pretrained/solider_swin_base.pth')
+    # parser.add_argument("--imagenet-pretrain", type=str, default='/home/tsl/nas/tsl/humanParsing/model_checkpoint/swin_cdg/swin_cdg_1024768_70_epoch.pth.tar')
     parser.add_argument("--log-dir", type=str, default='./log/test_swincdg')
     parser.add_argument("--model-restore", type=str, default='./log/checkpoint.pth.tar')
     parser.add_argument("--schp-start", type=int, default=10, help='schp start epoch')
@@ -69,6 +70,7 @@ def get_arguments():
     parser.add_argument("--warmup_epochs", type=int, default=10)
     parser.add_argument("--lr_divider", type=int, default=500)
     parser.add_argument("--cyclelr-divider", type=int, default=2)
+    parser.add_argument("--using-bf16", type=bool, default=False)
 
     return parser.parse_args()
 
@@ -215,6 +217,8 @@ def main():
     iter_start = timeit.default_timer()
 
     model.train()
+    if args.using_bf16:
+        scaler = GradScaler()
     for epoch in range(start_epoch, args.epochs):
         lr_scheduler.step(epoch=epoch)
         lr = lr_scheduler.get_lr()[0]
@@ -230,25 +234,46 @@ def main():
             hgt = hgt.float().cuda(non_blocking=True)
             wgt = wgt.float().cuda(non_blocking=True)
             hwgt = hwgt.float().cuda(non_blocking=True)
+            if args.using_bf16:
+                with autocast(dtype=torch.bfloat16):
+                    preds = model(images)
 
-            preds = model(images)
+                    # Online Self Correction Cycle with Label Refinement
+                    if cycle_n >= 1:
+                        with torch.no_grad():
+                            soft_preds = schp_model(images)
+                            soft_fused_preds = soft_preds[0][-1]
+                            soft_edges = soft_preds[1][-1]
+                            soft_preds = soft_fused_preds
+                    else:
+                        soft_preds = None
+                        soft_edges = None
 
-            # Online Self Correction Cycle with Label Refinement
-            if cycle_n >= 1:
-                with torch.no_grad():
-                    soft_preds = schp_model(images)
-                    soft_fused_preds = soft_preds[0][-1]
-                    soft_edges = soft_preds[1][-1]
-                    soft_preds = soft_fused_preds
+                    loss = criterion(preds, [labels, edges, soft_preds, soft_edges], cycle_n, hwgt=[hgt, wgt, hwgt])
+
+                optimizer.zero_grad()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
             else:
-                soft_preds = None
-                soft_edges = None
+                preds = model(images)
 
-            loss = criterion(preds, [labels, edges, soft_preds, soft_edges], cycle_n, hwgt=[hgt, wgt, hwgt])
+                # Online Self Correction Cycle with Label Refinement
+                if cycle_n >= 1:
+                    with torch.no_grad():
+                        soft_preds = schp_model(images)
+                        soft_fused_preds = soft_preds[0][-1]
+                        soft_edges = soft_preds[1][-1]
+                        soft_preds = soft_fused_preds
+                else:
+                    soft_preds = None
+                    soft_edges = None
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                loss = criterion(preds, [labels, edges, soft_preds, soft_edges], cycle_n, hwgt=[hgt, wgt, hwgt])
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
             if i_iter % 100 == 0:
                 print('iter = {} of {} completed, lr = {}, loss = {}, time = {}'

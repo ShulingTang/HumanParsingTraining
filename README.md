@@ -17,6 +17,13 @@ and you can obtain more information from the original repositories.
 
 Details of installation and dataset preparation can be found in [Self-Correction-Human-Parsing](https://github.com/GoGoDuck912/Self-Correction-Human-Parsing).
 
+### Docker Train Environment
+
+```shell
+docker pull pixocial.azurecr.io/train/humanparsing:v1.0
+```
+
+
 ## Prepare Pre-trained Models
 
 Step 1. Download models from [SOLIDER](https://github.com/tinyvision/SOLIDER), or use [SOLIDER](https://github.com/tinyvision/SOLIDER) to train your own models.

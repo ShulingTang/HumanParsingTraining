@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  human_parsing_training:
+    image: pixocial.azurecr.io/train/humanparsingtraining:v1.0
+    container_name: humanparsingtraining
+    runtime: nvidia
+    shm_size: '128g'  # 设置共享内存大小
+    network_mode: host
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all  # 使用所有可用 GPU
+    volumes:
+      - /you_project_path/HumanParsingTraining:/workspace/HumanParsingTraining  # 修改为你的项目路径
+      - /you_data_path/data:/workspace/data  # 修改为你的数据路径
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
