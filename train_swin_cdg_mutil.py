@@ -214,6 +214,8 @@ def main():
     total_iters = args.epochs * len(train_loader)
     start = timeit.default_timer()
     iter_start = timeit.default_timer()
+    iter_loss = []
+    epoch_loss = []
 
     model.train()
     if args.using_bf16:
@@ -221,6 +223,7 @@ def main():
     for epoch in range(start_epoch, args.epochs):
         dist_sampler.set_epoch(epoch)
         lr = lr_scheduler.get_lr()[0]
+        epoch_loss_sum = 0
 
         for i_iter, batch in enumerate(train_loader):
             i_iter += len(train_loader) * epoch
@@ -233,46 +236,27 @@ def main():
             hgt = hgt.float().cuda(non_blocking=True)
             wgt = wgt.float().cuda(non_blocking=True)
             hwgt = hwgt.float().cuda(non_blocking=True)
-            if args.using_bf16:
-                with autocast(dtype=torch.bfloat16):
-                    preds = model(images)
 
-                    # Online Self Correction Cycle with Label Refinement
-                    if cycle_n >= 1:
-                        with torch.no_grad():
-                            soft_preds = schp_model(images)
-                            soft_fused_preds = soft_preds[0][-1]
-                            soft_edges = soft_preds[1][-1]
-                            soft_preds = soft_fused_preds
-                    else:
-                        soft_preds = None
-                        soft_edges = None
+            preds = model(images)
 
-                    loss = criterion(preds, [labels, edges, soft_preds, soft_edges], cycle_n, hwgt=[hgt, wgt, hwgt])
-
-                optimizer.zero_grad()
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+            # Online Self Correction Cycle with Label Refinement
+            if cycle_n >= 1:
+                with torch.no_grad():
+                    soft_preds = schp_model(images)
+                    soft_fused_preds = soft_preds[0][-1]
+                    soft_edges = soft_preds[1][-1]
+                    soft_preds = soft_fused_preds
             else:
-                preds = model(images)
+                soft_preds = None
+                soft_edges = None
 
-                # Online Self Correction Cycle with Label Refinement
-                if cycle_n >= 1:
-                    with torch.no_grad():
-                        soft_preds = schp_model(images)
-                        soft_fused_preds = soft_preds[0][-1]
-                        soft_edges = soft_preds[1][-1]
-                        soft_preds = soft_fused_preds
-                else:
-                    soft_preds = None
-                    soft_edges = None
+            loss = criterion(preds, [labels, edges, soft_preds, soft_edges], cycle_n, hwgt=[hgt, wgt, hwgt])
+            iter_loss.append(loss)
+            epoch_loss_sum += loss
 
-                loss = criterion(preds, [labels, edges, soft_preds, soft_edges], cycle_n, hwgt=[hgt, wgt, hwgt])
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
             if i_iter % 100 == 0:
                 rank_print(local_rank, 'iter = {} of {} completed, lr = {}, loss = {}, time = {}'
@@ -284,11 +268,14 @@ def main():
                       )
                 iter_start = timeit.default_timer()
         lr_scheduler.step()
+        epoch_loss.append(epoch_loss_sum / len(train_loader))
         if local_rank == 0 and (epoch + 1) % (args.eval_epochs) == 0:
             schp.save_schp_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
             }, False, args.log_dir, filename='checkpoint_{}.pth.tar'.format(epoch + 1))
+            torch.save({"iter_loss": iter_loss, "epoch_loss": epoch_loss},
+                       os.path.join(args.log_dir, "loss_dict.pth.tar"))
 
         # Self Correction Cycle with Model Aggregation
         if (epoch + 1) >= args.schp_start and (epoch + 1 - args.schp_start) % args.cycle_epochs == 0:

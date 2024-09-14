@@ -23,9 +23,11 @@ from utils.utils import get_toggle_index
 
 
 class LIPDataSet(data.Dataset):
-    def __init__(self, root, dataset, crop_size=[473, 473], scale_factor=0.25,
+    def __init__(self, root, dataset, crop_size=None, scale_factor=0.25,
                  rotation_factor=30, ignore_label=255, transform=None,
                  arch="swin_cdg", num_classes=20, index_toggle=None):
+        if crop_size is None:
+            crop_size = [1024, 768]
         self.root = root
         self.aspect_ratio = crop_size[1] * 1.0 / crop_size[0]
         self.crop_size = np.asarray(crop_size)
@@ -47,8 +49,8 @@ class LIPDataSet(data.Dataset):
 
         list_path = os.path.join(self.root, self.dataset + '_id.txt')
         train_list = [i_id.strip() for i_id in open(list_path)]
-        import random
-        train_list = random.sample(train_list, 400)
+        # import random
+        # train_list = random.sample(train_list, 400)
 
         self.train_list = train_list
         self.number_samples = len(self.train_list)

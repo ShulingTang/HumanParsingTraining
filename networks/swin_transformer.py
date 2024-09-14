@@ -1516,6 +1516,7 @@ def swin_base_patch4_window7_224(img_size=224, drop_rate=0.0, attn_drop_rate=0.0
     initialize_pretrained_model(model, settings, **kwargs_bak)
     return model
 
+
 def swin_cdg_patch4_window7_224(img_size=224, drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0., **kwargs):
     kwargs_bak = deepcopy(kwargs)
     print(kwargs)
@@ -1532,6 +1533,22 @@ def swin_cdg_patch4_window7_224(img_size=224, drop_rate=0.0, attn_drop_rate=0.0,
     initialize_pretrained_model(model, settings, **kwargs_bak)
     return model
 
+
+def swin_cdg_patch8_window7_224(img_size=224, drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0., **kwargs):
+    kwargs_bak = deepcopy(kwargs)
+    print(kwargs)
+
+    num_classes = kwargs.pop('num_classes', 20)
+    kwargs.pop('pretrained')
+
+    model = SwinTransformer(pretrain_img_size=img_size, patch_size=4, window_size=7, embed_dims=128,
+                            depths=(2, 2, 18, 2), num_heads=(4, 8, 16, 32), context_in_channel=1024,
+                            fusion_in_channel=1024, drop_path_rate=drop_path_rate, drop_rate=drop_rate,
+                            attn_drop_rate=attn_drop_rate, hw_attention=True, num_classes=num_classes, **kwargs)
+    # print(kwargs)
+    settings = pretrained_settings['swin']['imagenet']
+    initialize_pretrained_model(model, settings, **kwargs_bak)
+    return model
 
 def swin_small_patch4_window7_224(img_size=224, drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0., **kwargs):
     kwargs_bak = deepcopy(kwargs)
